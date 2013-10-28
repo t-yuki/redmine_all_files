@@ -34,14 +34,11 @@ class ProjectAttachmentsController < ApplicationController
                                                                       :scope => @scope,
                                                                       :all_words => @all_words,
                                                                       :titles_only => @titles_only
-        # use only select (not select!) to have a compatibility with ruby 1.8.7
-        @all_attachments = @all_attachments.select {|a| a.visible? }
-        @all_attachments.sort! {|a1, a2| a2.created_on <=> a1.created_on }
       rescue ActiveRecord::RecordNotFound
         render_404
       end
     else
-      @projects ||= Project.all
+      @projects ||= Project.all(:include => :enabled_modules)
       # group projects by enabled modules
       container_types_to_projects = Hash.new { |h, k| h[k] = [] }
       @projects.each do |project|
@@ -64,9 +61,12 @@ class ProjectAttachmentsController < ApplicationController
                                                                         :all_words => @all_words,
                                                                         :titles_only => @titles_only)
       end
-      # use only select (not select!) to have a compatibility with ruby 1.8.7
-      @all_attachments = @all_attachments.select {|a| a.visible? }
-      @all_attachments.sort! {|a1, a2| a2.created_on <=> a1.created_on }
+      # we need re-sort becase we did concat
+      if @all_attachments.respond_to?(:sort_by!)
+        @all_attachments.sort_by! {|a| a.created_on }.reverse!
+      else
+        @all_attachments.sort! {|a1, a2| a2.created_on <=> a1.created_on }
+      end
     end
     @limit = per_page_option
     @attachments_count = @all_attachments.count

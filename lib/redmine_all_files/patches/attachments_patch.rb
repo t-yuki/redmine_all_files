@@ -22,7 +22,7 @@ module RedmineAllFiles
             statement = self.sanitize true if statement.blank?
           end
 
-          find_by_sql <<-SQL
+          attachments = find_by_sql <<-SQL
             SELECT d.title AS document_title, i.subject AS issue_subject, t.name AS issue_tracker_name,
                    n.title AS new_title, v.name AS version_name, w.title AS wiki_page_title, ww.project_id AS wiki_project_id,
                    p.name AS attachment_project_name, p.id AS attachment_project_id, a.*
@@ -45,8 +45,12 @@ module RedmineAllFiles
                   ) AND (
                    #{ statement }
                   ) AND a.container_type IN (#{ containers.map { |c| self.sanitize(c) }.join(', ') })
-            ORDER BY a.created_on
+            ORDER BY a.created_on DESC
           SQL
+          ActiveRecord::Associations::Preloader.new(attachments, :container).run
+          # use only select (not select!) to have a compatibility with ruby 1.8.7
+          attachments = attachments.select {|a| a.visible? }
+          attachments
         end
       end
     end
